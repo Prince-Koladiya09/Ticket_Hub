@@ -1,0 +1,25 @@
+{
+  "name": "tickethub-server",
+  "version": "0.1.0",
+  "description": "TicketHub API",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "node --test test/",
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.2.0"
+  }
+}
