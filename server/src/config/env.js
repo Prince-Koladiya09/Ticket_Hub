@@ -6,6 +6,8 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   CLIENT_URL: z.string().default('http://localhost:5173'),
+  MONGO_URI: z.string().default('mongodb://localhost:27017/tickethub?directConnection=true'),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
 });
 
 const parsed = schema.safeParse(process.env);
