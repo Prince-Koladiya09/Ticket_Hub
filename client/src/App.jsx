@@ -1,5 +1,8 @@
-import { Outlet, Route, Routes, Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, Outlet, Route, Routes } from 'react-router-dom';
 import Header from './components/Header.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import { bootstrapSession } from './api/auth.js';
 import { routes } from './routes.js';
 
 function Layout() {
@@ -24,11 +27,28 @@ function NotFound() {
 }
 
 export default function App() {
+  // Restore the session from the refresh cookie before rendering protected pages.
+  useEffect(() => {
+    bootstrapSession();
+  }, []);
+
   return (
     <Routes>
       <Route element={<Layout />}>
-        {routes.map(({ path, Component }) => (
-          <Route key={path} path={path} element={<Component />} />
+        {routes.map(({ path, Component, auth, roles }) => (
+          <Route
+            key={path}
+            path={path}
+            element={
+              auth || roles ? (
+                <ProtectedRoute roles={roles}>
+                  <Component />
+                </ProtectedRoute>
+              ) : (
+                <Component />
+              )
+            }
+          />
         ))}
         <Route path="*" element={<NotFound />} />
       </Route>
