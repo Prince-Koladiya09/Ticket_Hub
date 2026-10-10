@@ -7,4 +7,6 @@ export const authRouter = Router();
 
 authRouter.post('/register', validate(registerSchema), c.register);
 authRouter.post('/login', validate(loginSchema), c.login);
+authRouter.post('/refresh', c.refresh);
+authRouter.post('/logout', c.logout);
 authRouter.get('/verify-email', validate(verifyEmailSchema), c.verifyEmail);
