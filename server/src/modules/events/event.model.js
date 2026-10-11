@@ -43,14 +43,13 @@ const eventSchema = new mongoose.Schema(
   baseOptions,
 );
 
-eventSchema.pre('validate', function derive(next) {
+eventSchema.pre('validate', function derive() {
   if (this.city) this.cityKey = this.city.trim().toLowerCase();
   if (this.pricingTiers?.length) {
     const prices = this.pricingTiers.map((t) => t.price);
     this.minPrice = Math.min(...prices);
     this.maxPrice = Math.max(...prices);
   }
-  next();
 });
 
 // Full-text search with title weighted highest.

@@ -134,3 +134,28 @@ export async function getEvent(id, user) {
 
 export const listMine = (userId) =>
   populateVenue(Event.find({ organizerId: userId }).sort({ createdAt: -1 }).limit(200));
+
+// ---- Moderation (used by the admin module) ----
+
+export const listPending = () =>
+  populateVenue(Event.find({ status: 'pending_approval' }).sort({ createdAt: 1 }).limit(200));
+
+export async function approveEvent(id) {
+  const event = await Event.findOneAndUpdate(
+    { _id: id, status: 'pending_approval' },
+    { status: 'published', rejectionReason: undefined },
+    { new: true },
+  );
+  if (!event) throw conflict('Event is not awaiting approval', 'INVALID_STATE');
+  return event;
+}
+
+export async function rejectEvent(id, reason) {
+  const event = await Event.findOneAndUpdate(
+    { _id: id, status: 'pending_approval' },
+    { status: 'rejected', rejectionReason: reason },
+    { new: true },
+  );
+  if (!event) throw conflict('Event is not awaiting approval', 'INVALID_STATE');
+  return event;
+}
