@@ -81,3 +81,18 @@ label { display: block; font-size: 0.85rem; font-weight: 600; margin: 12px 0 4px
 .event-body { padding: 14px 16px 16px; }
 .event-body h3 { font-size: 1.05rem; margin-bottom: 4px; }
 .price { margin-top: 10px; font-size: 0.9rem; }
+
+.detail { display: grid; grid-template-columns: 1fr 340px; gap: 28px; align-items: start; }
+@media (max-width: 800px) { .detail { grid-template-columns: 1fr; } }
+.chip-inline { display: inline-block; background: #ece9ff; color: var(--brand-dark); padding: 2px 12px; border-radius: 99px; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; }
+.tier-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; align-items: end; }
+.section-row { margin-bottom: 8px; grid-template-columns: 2fr 1fr 1fr 2fr auto; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+.list-row { display: flex; gap: 12px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.list-row:last-child { border-bottom: 0; }
+.status { padding: 3px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 700; text-transform: capitalize; background: #eceef5; color: var(--muted); }
+.status-published, .status-CONFIRMED { background: #e0f6ec; color: var(--ok); }
+.status-pending_approval, .status-PENDING { background: #fff1d6; color: var(--warn); }
+.status-rejected, .status-cancelled, .status-CANCELLED, .status-EXPIRED { background: #fde4e4; color: var(--danger); }
