@@ -3,11 +3,20 @@ import { asyncHandler } from '../../common/asyncHandler.js';
 import { authenticate, authorize, optionalAuth } from '../../common/auth.js';
 import { created, ok } from '../../common/response.js';
 import { validate } from '../../common/validate.js';
-import { createEventSchema, eventIdSchema, updateEventSchema } from './event.schemas.js';
+import { createEventSchema, eventIdSchema, listEventsSchema, updateEventSchema } from './event.schemas.js';
 import * as events from './event.service.js';
 
 export const eventRouter = Router();
 const organizerOnly = [authenticate, authorize('organizer', 'admin')];
+
+eventRouter.get(
+  '/',
+  validate(listEventsSchema),
+  asyncHandler(async (req, res) => {
+    const { items, nextCursor } = await events.listPublished(req.query);
+    ok(res, items, { nextCursor, limit: req.query.limit });
+  }),
+);
 
 eventRouter.get(
   '/mine',

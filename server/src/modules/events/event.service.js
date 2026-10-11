@@ -1,4 +1,5 @@
 import { badRequest, conflict, notFound } from '../../common/errors.js';
+import { decodeCursor, encodeCursor } from '../../common/cursor.js';
 import { getVenue } from '../venues/venues.service.js';
 import { deleteSeatsForEvent, replaceSeatsForEvent } from '../seats/seats.service.js';
 import { Event } from './event.model.js';
@@ -158,4 +159,52 @@ export async function rejectEvent(id, reason) {
   );
   if (!event) throw conflict('Event is not awaiting approval', 'INVALID_STATE');
   return event;
+}
+
+// ---- Public discovery ----
+
+/**
+ * Search and filter published events with keyset (cursor) pagination.
+ * Sort key is (startsAt, _id): startsAt gives chronological order and _id breaks ties,
+ * so the order is total and stable. This matches the { status, startsAt, _id } index.
+ */
+export async function listPublished({ q, city, category, from, to, minPrice, maxPrice, cursor, limit }) {
+  const clauses = [{ status: 'published' }];
+
+  const startsAt = { $gte: from ?? new Date() };
+  if (to) startsAt.$lte = to;
+  clauses.push({ startsAt });
+
+  if (q) clauses.push({ $text: { $search: q } });
+  if (city) clauses.push({ cityKey: city.trim().toLowerCase() });
+  if (category) clauses.push({ category });
+  // An event matches a price range if any of its tiers can fall inside it.
+  if (minPrice != null) clauses.push({ maxPrice: { $gte: minPrice } });
+  if (maxPrice != null) clauses.push({ minPrice: { $lte: maxPrice } });
+
+  if (cursor) {
+    const { s, i } = decodeCursor(cursor);
+    const after = new Date(s);
+    if (Number.isNaN(after.getTime()) || !/^[a-f\d]{24}$/i.test(String(i))) {
+      throw badRequest('Invalid cursor', undefined, 'INVALID_CURSOR');
+    }
+    clauses.push({ $or: [{ startsAt: { $gt: after } }, { startsAt: after, _id: { $gt: i } }] });
+  }
+
+  // Fetch one extra row to know whether another page exists without a count query.
+  const rows = await Event.find({ $and: clauses })
+    .sort({ startsAt: 1, _id: 1 })
+    .limit(limit + 1)
+    .select('-description')
+    .lean({ virtuals: false });
+
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+  const last = items.at(-1);
+  const nextCursor = hasMore ? encodeCursor({ s: last.startsAt.toISOString(), i: String(last._id) }) : null;
+
+  return {
+    items: items.map(({ _id, __v, ...rest }) => ({ id: String(_id), ...rest })),
+    nextCursor,
+  };
 }
