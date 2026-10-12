@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { env } from '../../config/env.js';
 import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
+import { emitSeats } from '../../common/realtime.js';
 import { assertBookable } from '../events/event.service.js';
 import { getSeatsByIds } from '../seats/seats.service.js';
 import { BookedSeat } from './bookedSeat.model.js';
@@ -71,6 +72,7 @@ export async function holdSeats({ userId, eventId, seatIds }) {
       totalAmount: seats.reduce((sum, s) => sum + s.price, 0),
       expiresAt: lock.expiresAt,
     });
+    emitSeats(eventId, 'seats:locked', ids);
     return booking;
   } catch (err) {
     await releaseSeats({ eventId, seatIds: ids, ownerId: bookingId });
@@ -91,6 +93,7 @@ export async function releaseHold(userId, bookingId) {
     throw conflict('This booking is no longer on hold', 'BOOKING_NOT_PENDING');
   }
   await releaseSeats({ eventId: booking.eventId, seatIds: booking.seatIds, ownerId: booking._id });
+  emitSeats(booking.eventId, 'seats:released', booking.seatIds);
   return booking;
 }
 

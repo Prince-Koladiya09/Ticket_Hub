@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 import { connectMongo, disconnectMongo } from './config/db.js';
 import { connectRedis, redis } from './config/redis.js';
 import { logger } from './common/logger.js';
+import { initSockets } from './sockets/index.js';
 
 process.on('unhandledRejection', (reason) => logger.error({ reason }, 'unhandled rejection'));
 
@@ -13,6 +14,7 @@ async function boot() {
 
   const app = createApp();
   const server = http.createServer(app);
+  const io = initSockets(server);
   server.listen(env.PORT, () => logger.info(`API listening on :${env.PORT}`));
 
   let closing = false;
@@ -20,6 +22,7 @@ async function boot() {
     if (closing) return;
     closing = true;
     logger.info({ signal }, 'shutting down');
+    io.close();
     server.close(async () => {
       await disconnectMongo().catch(() => {});
       await redis.quit().catch(() => {});

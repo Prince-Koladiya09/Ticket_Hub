@@ -13,6 +13,8 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "@socket.io/redis-emitter": "^5.1.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -25,6 +27,7 @@
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
     "rate-limiter-flexible": "^11.2.2",
+    "socket.io": "^4.8.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {
