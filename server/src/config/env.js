@@ -13,6 +13,8 @@ const schema = z.object({
   ACCESS_TTL: z.string().default('15m'),
   REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
+  SEAT_LOCK_TTL: z.coerce.number().int().min(5).default(300),
+  MAX_SEATS_PER_BOOKING: z.coerce.number().int().min(1).max(20).default(6),
 });
 
 const parsed = schema.safeParse(process.env);
