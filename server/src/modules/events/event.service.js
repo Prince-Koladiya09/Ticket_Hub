@@ -208,3 +208,14 @@ export async function listPublished({ q, city, category, from, to, minPrice, max
     nextCursor,
   };
 }
+
+// ---- Used by the booking module ----
+
+/** Returns the event if seats can currently be held for it, otherwise throws. */
+export async function assertBookable(eventId) {
+  const event = await Event.findById(eventId).select('status startsAt title city');
+  if (!event) throw notFound('Event not found', 'EVENT_NOT_FOUND');
+  if (event.status !== 'published') throw conflict('This event is not open for booking', 'EVENT_NOT_BOOKABLE');
+  if (event.startsAt <= new Date()) throw conflict('This event has already started', 'EVENT_STARTED');
+  return event;
+}
