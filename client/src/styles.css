@@ -96,3 +96,23 @@ label { display: block; font-size: 0.85rem; font-weight: 600; margin: 12px 0 4px
 .status-published, .status-CONFIRMED { background: #e0f6ec; color: var(--ok); }
 .status-pending_approval, .status-PENDING { background: #fff1d6; color: var(--warn); }
 .status-rejected, .status-cancelled, .status-CANCELLED, .status-EXPIRED { background: #fde4e4; color: var(--danger); }
+
+.seat-layout { display: grid; grid-template-columns: 1fr 320px; gap: 28px; align-items: start; }
+@media (max-width: 900px) { .seat-layout { grid-template-columns: 1fr; } }
+.summary { position: sticky; top: 16px; }
+.total { font-size: 1.05rem; border-bottom: 0; }
+.seatmap { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; overflow-x: auto; }
+.stage { background: linear-gradient(#d9d6f7, #ece9ff); text-align: center; padding: 8px; border-radius: 0 0 60px 60px; font-size: 0.75rem; letter-spacing: 0.3em; color: var(--brand-dark); margin: 0 auto 24px; max-width: 70%; }
+.seat-section { margin-bottom: 20px; }
+.seat-section-title { font-weight: 700; margin-bottom: 8px; font-size: 0.9rem; }
+.seat-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+.row-label { width: 26px; font-size: 0.75rem; color: var(--muted); text-align: center; flex: none; }
+.seat { width: 28px; height: 28px; border-radius: 7px 7px 4px 4px; border: 1.5px solid transparent; font-size: 0.65rem; font-weight: 600; cursor: pointer; flex: none; padding: 0; font-family: inherit; display: inline-block; vertical-align: middle; }
+.seat-available { background: #fff; border-color: #b9bdd3; color: var(--ink); }
+.seat-available:hover:not(:disabled) { border-color: var(--brand); background: #f3f1ff; }
+.seat-selected { background: var(--brand); border-color: var(--brand); color: #fff; }
+.seat-mine { background: var(--ok); border-color: var(--ok); color: #fff; }
+.seat-locked { background: #ffe3a3; border-color: #f0c35a; color: #8a6200; cursor: not-allowed; }
+.seat-booked { background: #dfe1ec; border-color: #dfe1ec; color: #9aa0b8; cursor: not-allowed; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 0.8rem; color: var(--muted); }
+.legend .seat { width: 16px; height: 16px; cursor: default; margin-right: 6px; }
