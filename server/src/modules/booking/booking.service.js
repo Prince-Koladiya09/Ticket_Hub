@@ -4,6 +4,7 @@ import { withTransaction } from '../../common/transaction.js';
 import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
 import { emitSeats, emitToUser } from '../../common/realtime.js';
+import { enqueueEmail } from '../notifications/email.service.js';
 import { assertBookable } from '../events/event.service.js';
 import { getSeatsByIds } from '../seats/seats.service.js';
 import { BookedSeat } from './bookedSeat.model.js';
@@ -208,5 +209,22 @@ export async function confirmBooking(bookingId, { paymentRef = null } = {}) {
   await releaseSeats({ eventId: confirmed.eventId, seatIds: confirmed.seatIds, ownerId: confirmed._id });
   await cancelExpiry(confirmed._id);
   emitSeats(confirmed.eventId, 'seats:booked', confirmed.seatIds);
+  await notifyConfirmed(confirmed);
   return confirmed;
+}
+
+async function notifyConfirmed(booking) {
+  const full = await Booking.findById(booking._id)
+    .populate('seatIds', 'section row number tier')
+    .populate({ path: 'eventId', select: 'title startsAt venueId', populate: { path: 'venueId', select: 'name' } })
+    .populate('userId', 'name email');
+  await enqueueEmail('bookingConfirmed', full.userId.email, {
+    name: full.userId.name,
+    eventTitle: full.eventId.title,
+    startsAt: full.eventId.startsAt,
+    venue: full.eventId.venueId?.name,
+    seats: full.seatIds.map((s) => s.toJSON()),
+    totalAmount: full.totalAmount,
+    bookingId: String(full._id),
+  });
 }

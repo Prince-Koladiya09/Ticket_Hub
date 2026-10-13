@@ -19,6 +19,12 @@ const schema = z.object({
   USE_TRANSACTIONS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   // Lets a logged-in user confirm their own hold without paying. Dev/demo only; ignored in production.
   ENABLE_DEV_CONFIRM: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  // Leave SMTP_HOST empty in development: emails are logged instead of delivered.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().default('TicketHub <no-reply@tickethub.local>'),
 });
 
 const parsed = schema.safeParse(process.env);

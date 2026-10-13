@@ -28,6 +28,7 @@
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.11.2",
+    "nodemailer": "^10.1.1",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
     "rate-limiter-flexible": "^11.2.2",

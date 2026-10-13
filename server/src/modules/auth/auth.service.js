@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env.js';
-import { logger } from '../../common/logger.js';
 import { conflict, forbidden, unauthorized, badRequest } from '../../common/errors.js';
 import {
   createUser,
@@ -11,6 +10,7 @@ import {
   findByVerifyTokenHash,
   toPublic,
 } from '../users/users.service.js';
+import { enqueueEmail } from '../notifications/email.service.js';
 import { issueRefreshToken, revokeFamilyByToken, rotateRefreshToken } from './token.service.js';
 
 const sha256 = (v) => crypto.createHash('sha256').update(v).digest('hex');
@@ -37,8 +37,7 @@ export async function register({ name, email, password, role }) {
   const verifyToken = crypto.randomBytes(24).toString('hex');
   const user = await createUser({ name, email, passwordHash, role, verifyTokenHash: sha256(verifyToken) });
 
-  // TODO(notifications): replace with an emailed link once the email queue exists.
-  logger.info({ email, verifyToken }, 'email verification token generated');
+  await enqueueEmail('verifyEmail', email, { name, token: verifyToken });
 
   return startSession(user);
 }
