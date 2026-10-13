@@ -216,7 +216,7 @@ export async function confirmBooking(bookingId, { paymentRef = null } = {}) {
 export async function loadBookingContext(bookingId) {
   const booking = await Booking.findById(bookingId)
     .populate('seatIds', 'section row number tier price')
-    .populate({ path: 'eventId', select: 'title startsAt city venueId', populate: { path: 'venueId', select: 'name address' } })
+    .populate({ path: 'eventId', select: 'title startsAt city venueId organizerId', populate: { path: 'venueId', select: 'name address' } })
     .populate('userId', 'name email');
   if (!booking) throw notFound('Booking not found', 'BOOKING_NOT_FOUND');
   return booking;
