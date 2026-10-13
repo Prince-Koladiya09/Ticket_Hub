@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node --test",
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "worker": "node src/worker.js",
+    "dev:worker": "node --watch src/worker.js"
   },
   "type": "module",
   "engines": {
@@ -16,6 +18,7 @@
     "@socket.io/redis-adapter": "^8.3.0",
     "@socket.io/redis-emitter": "^5.1.0",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^6.3.15",
     "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
