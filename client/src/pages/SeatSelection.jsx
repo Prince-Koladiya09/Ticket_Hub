@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { holdSeats } from '../api/booking.js';
+import { useConfig } from '../api/config.js';
 import SeatMap from '../components/SeatMap.jsx';
 import { ErrorBox, Spinner } from '../components/ui.jsx';
 import { useSeatMap } from '../hooks/useSeatMap.js';
@@ -10,13 +11,12 @@ import { useAuth } from '../store/auth.js';
 
 export const route = { path: '/events/:id/seats' };
 
-const MAX_SEATS = 6;
-
 export default function SeatSelection() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const user = useAuth((s) => s.user);
+  const { maxSeatsPerBooking: MAX_SEATS } = useConfig();
   const { data: map, isLoading, error } = useSeatMap(id);
   const [selected, setSelected] = useState(new Map());
 

@@ -6,3 +6,6 @@ export const fetchBooking = (id) => get(`/bookings/${id}`).then((r) => r.data);
 export const releaseHold = (id) => del(`/bookings/${id}/hold`).then((r) => r.data);
 export const fetchMyBookings = (params) =>
   get('/bookings/me', params).then((r) => ({ items: r.data, nextCursor: r.meta?.nextCursor ?? null }));
+
+// Dev/demo only: stands in for the payment webhook until payments are integrated.
+export const devConfirm = (id) => post(`/bookings/${id}/dev-confirm`).then((r) => r.data);

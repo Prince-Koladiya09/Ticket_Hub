@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../common/asyncHandler.js';
 import { authenticate } from '../../common/auth.js';
+import { env } from '../../config/env.js';
 import { rateLimit } from '../../common/rateLimit.js';
 import { created, ok } from '../../common/response.js';
 import { validate } from '../../common/validate.js';
@@ -37,6 +38,19 @@ bookingRouter.get(
   validate(bookingIdSchema),
   asyncHandler(async (req, res) => ok(res, bookings.toDto(await bookings.getBooking(req.user, req.params.id)))),
 );
+
+// DEV/DEMO ONLY: stands in for the payment webhook until payments are integrated.
+if (env.ENABLE_DEV_CONFIRM && env.NODE_ENV !== 'production') {
+  bookingRouter.post(
+    '/:id/dev-confirm',
+    validate(bookingIdSchema),
+    asyncHandler(async (req, res) => {
+      await bookings.getBooking(req.user, req.params.id); // ownership check
+      const booking = await bookings.confirmBooking(req.params.id, { paymentRef: 'DEV-CONFIRM' });
+      ok(res, { bookingId: booking.id, status: booking.status });
+    }),
+  );
+}
 
 bookingRouter.delete(
   '/:id/hold',

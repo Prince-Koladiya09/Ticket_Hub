@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { env } from '../../config/env.js';
+import { withTransaction } from '../../common/transaction.js';
 import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
 import { emitSeats, emitToUser } from '../../common/realtime.js';
@@ -159,4 +160,53 @@ export async function sweepExpired(limit = 200) {
   let expired = 0;
   for (const { _id } of due) if (await expireBooking(_id)) expired += 1;
   return expired;
+}
+
+// ---- Confirmation ----
+
+/**
+ * Turns a PENDING booking into a CONFIRMED one and marks its seats as sold.
+ *
+ * This is the seam for payments: the payment webhook handler will call
+ * `confirmBooking(bookingId, { paymentRef })` once the gateway reports success. It is idempotent
+ * (a second call finds the booking no longer PENDING and fails cleanly) and atomic: the booking
+ * status and the sold-seat rows commit together or not at all.
+ *
+ * If another booking somehow already owns a seat (Redis flushed, bug...), the unique index on
+ * BookedSeat aborts the whole transaction, so a seat can never be sold twice.
+ */
+export async function confirmBooking(bookingId, { paymentRef = null } = {}) {
+  const pending = await Booking.findById(bookingId);
+  if (!pending) throw notFound('Booking not found', 'BOOKING_NOT_FOUND');
+  if (pending.status !== 'PENDING') {
+    throw conflict(`Booking is ${pending.status.toLowerCase()}, not pending`, 'BOOKING_NOT_PENDING');
+  }
+
+  let confirmed;
+  try {
+    confirmed = await withTransaction(async (session) => {
+      await BookedSeat.insertMany(
+        pending.seatIds.map((seatId) => ({ eventId: pending.eventId, seatId, bookingId: pending._id })),
+        { session },
+      );
+      const booking = await Booking.findOneAndUpdate(
+        { _id: bookingId, status: 'PENDING' },
+        { status: 'CONFIRMED', confirmedAt: new Date(), paymentRef },
+        { new: true, session },
+      );
+      if (!booking) throw conflict('Booking is no longer pending', 'BOOKING_NOT_PENDING');
+      return booking;
+    });
+  } catch (err) {
+    if (err?.code === 11000 || err?.writeErrors?.some((e) => e.code === 11000)) {
+      throw conflict('One or more seats were already sold', 'SEATS_UNAVAILABLE');
+    }
+    throw err;
+  }
+
+  // Post-commit side effects. Failures here must not undo a successful booking.
+  await releaseSeats({ eventId: confirmed.eventId, seatIds: confirmed.seatIds, ownerId: confirmed._id });
+  await cancelExpiry(confirmed._id);
+  emitSeats(confirmed.eventId, 'seats:booked', confirmed.seatIds);
+  return confirmed;
 }

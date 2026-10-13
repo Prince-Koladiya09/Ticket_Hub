@@ -15,6 +15,10 @@ const schema = z.object({
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
   SEAT_LOCK_TTL: z.coerce.number().int().min(5).default(300),
   MAX_SEATS_PER_BOOKING: z.coerce.number().int().min(1).max(20).default(6),
+  // MongoDB transactions need a replica set (docker-compose provides one). Disable only for a plain standalone mongod.
+  USE_TRANSACTIONS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  // Lets a logged-in user confirm their own hold without paying. Dev/demo only; ignored in production.
+  ENABLE_DEV_CONFIRM: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 });
 
 const parsed = schema.safeParse(process.env);

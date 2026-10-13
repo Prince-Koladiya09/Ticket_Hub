@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchBooking, releaseHold } from '../api/booking.js';
+import { devConfirm, fetchBooking, releaseHold } from '../api/booking.js';
+import { useConfig } from '../api/config.js';
 import { ErrorBox, Spinner } from '../components/ui.jsx';
 import { formatClock, useCountdown } from '../hooks/useCountdown.js';
 import { getSocket } from '../lib/socket.js';
@@ -41,6 +42,9 @@ export default function Checkout() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seconds, booking?.status]);
+
+  const config = useConfig();
+  const confirm = useMutation({ mutationFn: () => devConfirm(bookingId), onSuccess: refresh });
 
   const release = useMutation({
     mutationFn: () => releaseHold(bookingId),
@@ -105,7 +109,18 @@ export default function Checkout() {
             <button className="btn" style={{ width: '100%' }} disabled>
               Pay {formatPrice(booking.totalAmount)}
             </button>
-            <ErrorBox error={release.error} />
+            {config.devConfirmEnabled && (
+              <button
+                className="btn secondary"
+                style={{ width: '100%', marginTop: 10, borderStyle: 'dashed' }}
+                disabled={confirm.isPending}
+                onClick={() => confirm.mutate()}
+                title="Development only: confirms the booking without payment"
+              >
+                {confirm.isPending ? 'Confirming...' : 'Dev: confirm without payment'}
+              </button>
+            )}
+            <ErrorBox error={confirm.error || release.error} />
             <button
               className="btn secondary"
               style={{ width: '100%', marginTop: 10 }}
