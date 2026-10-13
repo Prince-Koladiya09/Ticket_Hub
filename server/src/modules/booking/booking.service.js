@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
-import { env } from '../../config/env.js';
+import { logger } from '../../common/logger.js';
 import { withTransaction } from '../../common/transaction.js';
 import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
 import { emitSeats, emitToUser } from '../../common/realtime.js';
-import { enqueueEmail } from '../notifications/email.service.js';
+import { ticketQueue } from '../../queues/index.js';
 import { assertBookable } from '../events/event.service.js';
 import { getSeatsByIds } from '../seats/seats.service.js';
 import { BookedSeat } from './bookedSeat.model.js';
@@ -129,7 +129,6 @@ export async function listMine(userId, { cursor, limit }) {
   return { items, nextCursor: hasMore ? encodeCursor({ i: String(items.at(-1)._id) }) : null };
 }
 
-export const config = { lockTtl: env.SEAT_LOCK_TTL };
 
 // ---- Expiry (called by the worker) ----
 
@@ -209,22 +208,25 @@ export async function confirmBooking(bookingId, { paymentRef = null } = {}) {
   await releaseSeats({ eventId: confirmed.eventId, seatIds: confirmed.seatIds, ownerId: confirmed._id });
   await cancelExpiry(confirmed._id);
   emitSeats(confirmed.eventId, 'seats:booked', confirmed.seatIds);
-  await notifyConfirmed(confirmed);
+  await queueTicket(confirmed._id);
   return confirmed;
 }
 
-async function notifyConfirmed(booking) {
-  const full = await Booking.findById(booking._id)
-    .populate('seatIds', 'section row number tier')
-    .populate({ path: 'eventId', select: 'title startsAt venueId', populate: { path: 'venueId', select: 'name' } })
+/** Booking with its seats, event, venue and user loaded: everything tickets and emails need. */
+export async function loadBookingContext(bookingId) {
+  const booking = await Booking.findById(bookingId)
+    .populate('seatIds', 'section row number tier price')
+    .populate({ path: 'eventId', select: 'title startsAt city venueId', populate: { path: 'venueId', select: 'name address' } })
     .populate('userId', 'name email');
-  await enqueueEmail('bookingConfirmed', full.userId.email, {
-    name: full.userId.name,
-    eventTitle: full.eventId.title,
-    startsAt: full.eventId.startsAt,
-    venue: full.eventId.venueId?.name,
-    seats: full.seatIds.map((s) => s.toJSON()),
-    totalAmount: full.totalAmount,
-    bookingId: String(full._id),
-  });
+  if (!booking) throw notFound('Booking not found', 'BOOKING_NOT_FOUND');
+  return booking;
+}
+
+/** Ticket PDF + confirmation email are produced asynchronously by the ticket worker. */
+async function queueTicket(bookingId) {
+  try {
+    await ticketQueue.add('generate', { bookingId: String(bookingId) }, { jobId: `ticket-${bookingId}` });
+  } catch (err) {
+    logger.error({ err: err.message, bookingId }, 'could not enqueue ticket job');
+  }
 }

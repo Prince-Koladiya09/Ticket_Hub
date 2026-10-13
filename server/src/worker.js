@@ -1,3 +1,4 @@
+import './config/models.js';
 import { connectMongo, disconnectMongo } from './config/db.js';
 import { connectRedis, redis } from './config/redis.js';
 import { logger } from './common/logger.js';
