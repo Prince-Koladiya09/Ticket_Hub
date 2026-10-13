@@ -2,11 +2,12 @@ import mongoose from 'mongoose';
 import { env } from '../../config/env.js';
 import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
-import { emitSeats } from '../../common/realtime.js';
+import { emitSeats, emitToUser } from '../../common/realtime.js';
 import { assertBookable } from '../events/event.service.js';
 import { getSeatsByIds } from '../seats/seats.service.js';
 import { BookedSeat } from './bookedSeat.model.js';
 import { Booking } from './booking.model.js';
+import { cancelExpiry, scheduleExpiry } from './expiry.js';
 import { lockSeats, releaseSeats } from './seatLock.service.js';
 
 /** Serializes a booking, with seats/event included when they were populated. */
@@ -73,6 +74,7 @@ export async function holdSeats({ userId, eventId, seatIds }) {
       expiresAt: lock.expiresAt,
     });
     emitSeats(eventId, 'seats:locked', ids);
+    await scheduleExpiry(booking._id, booking.expiresAt);
     return booking;
   } catch (err) {
     await releaseSeats({ eventId, seatIds: ids, ownerId: bookingId });
@@ -94,6 +96,7 @@ export async function releaseHold(userId, bookingId) {
   }
   await releaseSeats({ eventId: booking.eventId, seatIds: booking.seatIds, ownerId: booking._id });
   emitSeats(booking.eventId, 'seats:released', booking.seatIds);
+  await cancelExpiry(booking._id);
   return booking;
 }
 
@@ -125,3 +128,35 @@ export async function listMine(userId, { cursor, limit }) {
 }
 
 export const config = { lockTtl: env.SEAT_LOCK_TTL };
+
+// ---- Expiry (called by the worker) ----
+
+/**
+ * Marks an unpaid booking expired and frees its seats. Safe to call repeatedly and concurrently:
+ * the conditional update means only one caller wins, and the rest are no-ops.
+ */
+export async function expireBooking(bookingId) {
+  const booking = await Booking.findOneAndUpdate(
+    // The 2s grace absorbs clock drift between the Redis TTL, the delayed job and this check.
+    { _id: bookingId, status: 'PENDING', expiresAt: { $lte: new Date(Date.now() + 2000) } },
+    { status: 'EXPIRED' },
+    { new: true },
+  );
+  if (!booking) return false;
+
+  await releaseSeats({ eventId: booking.eventId, seatIds: booking.seatIds, ownerId: booking._id });
+  emitSeats(booking.eventId, 'seats:released', booking.seatIds);
+  emitToUser(booking.userId, 'booking:expired', { bookingId: String(booking._id) });
+  return true;
+}
+
+/** Safety net: if a delayed job was lost (Redis flush, deploy), expire anything clearly overdue. */
+export async function sweepExpired(limit = 200) {
+  const due = await Booking.find({ status: 'PENDING', expiresAt: { $lt: new Date(Date.now() - 5000) } })
+    .select('_id')
+    .limit(limit)
+    .lean();
+  let expired = 0;
+  for (const { _id } of due) if (await expireBooking(_id)) expired += 1;
+  return expired;
+}
