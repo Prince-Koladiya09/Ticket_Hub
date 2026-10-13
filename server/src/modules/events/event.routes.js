@@ -28,7 +28,7 @@ eventRouter.get(
   '/:id',
   optionalAuth,
   validate(eventIdSchema),
-  asyncHandler(async (req, res) => ok(res, events.toDto(await events.getEvent(req.params.id, req.user)))),
+  asyncHandler(async (req, res) => ok(res, await events.getEventView(req.params.id, req.user))),
 );
 
 eventRouter.post(

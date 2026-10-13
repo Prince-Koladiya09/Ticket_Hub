@@ -16,7 +16,7 @@ const tiers = z
 const base = {
   title: z.string().trim().min(3).max(140),
   description: z.string().trim().max(5000).optional(),
-  category: z.enum(CATEGORIES).default('other'),
+  category: z.enum(CATEGORIES),
   bannerUrl: z.string().trim().url().max(500).optional().or(z.literal('')),
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date().optional(),
@@ -25,7 +25,7 @@ const base = {
 };
 
 export const createEventSchema = {
-  body: z.object(base).refine((e) => e.startsAt > new Date(), {
+  body: z.object({ ...base, category: base.category.default('other') }).refine((e) => e.startsAt > new Date(), {
     path: ['startsAt'],
     message: 'Event must start in the future',
   }),

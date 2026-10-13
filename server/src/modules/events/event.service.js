@@ -1,4 +1,5 @@
 import { badRequest, conflict, notFound } from '../../common/errors.js';
+import { bumpVersion, cacheAside, getVersion, hashParams, invalidate } from '../../common/cache.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
 import { getVenue } from '../venues/venues.service.js';
 import { deleteSeatsForEvent, replaceSeatsForEvent } from '../seats/seats.service.js';
@@ -15,6 +16,11 @@ export function toDto(event) {
     o.venueId = o.venue.id;
   }
   return o;
+}
+
+/** Drops the cached detail page and invalidates every cached listing (by bumping the list version). */
+export async function invalidateEventCaches(eventId) {
+  await Promise.all([invalidate(`cache:event:${eventId}`), bumpVersion('events')]);
 }
 
 const populateVenue = (q) => q.populate('venueId', 'name city address layout');
@@ -99,6 +105,7 @@ export async function updateEvent(user, id, patch) {
     throw badRequest('endsAt must be after startsAt', undefined, 'INVALID_DATES');
   }
   await event.save();
+  await invalidateEventCaches(event.id);
   return event;
 }
 
@@ -122,6 +129,7 @@ export async function cancelEvent(user, id) {
   }
   event.status = 'cancelled';
   await event.save();
+  await invalidateEventCaches(event.id);
   return event;
 }
 
@@ -148,6 +156,7 @@ export async function approveEvent(id) {
     { new: true },
   );
   if (!event) throw conflict('Event is not awaiting approval', 'INVALID_STATE');
+  await invalidateEventCaches(event.id);
   return event;
 }
 
@@ -168,7 +177,7 @@ export async function rejectEvent(id, reason) {
  * Sort key is (startsAt, _id): startsAt gives chronological order and _id breaks ties,
  * so the order is total and stable. This matches the { status, startsAt, _id } index.
  */
-export async function listPublished({ q, city, category, from, to, minPrice, maxPrice, cursor, limit }) {
+async function queryPublished({ q, city, category, from, to, minPrice, maxPrice, cursor, limit }) {
   const clauses = [{ status: 'published' }];
 
   const startsAt = { $gte: from ?? new Date() };
@@ -218,4 +227,20 @@ export async function assertBookable(eventId) {
   if (event.status !== 'published') throw conflict('This event is not open for booking', 'EVENT_NOT_BOOKABLE');
   if (event.startsAt <= new Date()) throw conflict('This event has already started', 'EVENT_STARTED');
   return event;
+}
+
+/** Public listing, cached for 60s. A new publish/update bumps the version, so changes show up immediately. */
+export async function listPublished(params) {
+  const version = await getVersion('events');
+  return cacheAside(`cache:events:list:v${version}:${hashParams(params)}`, 60, () => queryPublished(params));
+}
+
+/** Event detail DTO. Published events come from the cache; owners/admins viewing drafts bypass it. */
+export async function getEventView(id, user) {
+  const cached = await cacheAside(`cache:event:${id}`, 300, async () => {
+    const event = await populateVenue(Event.findOne({ _id: id, status: 'published' }));
+    return event ? toDto(event) : null;
+  });
+  if (cached) return cached;
+  return toDto(await getEvent(id, user)); // not public: apply owner/admin visibility rules
 }
