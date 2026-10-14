@@ -126,3 +126,7 @@ label { display: block; font-size: 0.85rem; font-weight: 600; margin: 12px 0 4px
 .stat-value { font-size: 1.4rem; font-weight: 800; }
 .progress { height: 8px; background: #e4e6ef; border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
 .progress-bar { height: 100%; background: linear-gradient(90deg, var(--brand), #a29bfe); }
+
+.stack { display: grid; gap: 14px; }
+.booking-card { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
