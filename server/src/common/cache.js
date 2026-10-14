@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { redis } from '../config/redis.js';
 import { logger } from './logger.js';
+import { cacheRequests } from './metrics.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // +-10% jitter so keys written together don't all expire together.
@@ -18,11 +19,15 @@ const warn = (err) => logger.warn({ err: err?.message }, 'cache error (continuin
 export async function cacheAside(key, ttlSeconds, loader, { lockSeconds = 5, waitMs = 1500 } = {}) {
   try {
     const hit = await redis.get(key);
-    if (hit !== null) return JSON.parse(hit);
+    if (hit !== null) {
+      cacheRequests.inc({ result: 'hit' });
+      return JSON.parse(hit);
+    }
   } catch (err) {
     warn(err);
     return loader();
   }
+  cacheRequests.inc({ result: 'miss' });
 
   const mutex = `lock:${key}`;
   let owner = false;

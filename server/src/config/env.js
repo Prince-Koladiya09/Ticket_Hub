@@ -27,6 +27,8 @@ const schema = z.object({
   MAIL_FROM: z.string().default('TicketHub <no-reply@tickethub.local>'),
   STORAGE_DIR: z.string().default('./storage'),
   CANCELLATION_CUTOFF_HOURS: z.coerce.number().int().min(0).default(24),
+  // If set, GET /metrics requires 'Authorization: Bearer <token>'. In production also keep it off the public internet.
+  METRICS_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

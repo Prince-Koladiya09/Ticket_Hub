@@ -1,5 +1,6 @@
 import { env } from '../../config/env.js';
 import { redis } from '../../config/redis.js';
+import { seatLockAttempts } from '../../common/metrics.js';
 
 /**
  * Seat locks live in Redis as plain keys with a TTL:
@@ -64,6 +65,7 @@ const seatIdFromKey = (key) => key.slice(key.lastIndexOf(':') + 1);
 export async function lockSeats({ eventId, seatIds, ownerId, ttl = env.SEAT_LOCK_TTL }) {
   const keys = seatIds.map((s) => lockKey(eventId, s));
   const conflicts = await redis.lockSeats(keys.length, ...keys, String(ownerId), ttl);
+  seatLockAttempts.inc({ result: conflicts.length ? 'conflict' : 'success' });
   if (conflicts.length) return { ok: false, conflicts: conflicts.map(seatIdFromKey) };
   return { ok: true, expiresAt: new Date(Date.now() + ttl * 1000) };
 }

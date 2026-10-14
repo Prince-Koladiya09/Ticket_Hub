@@ -8,6 +8,8 @@ import { requestLogger } from './common/requestLogger.js';
 import { errorHandler, notFoundHandler } from './common/errorHandler.js';
 import { globalLimiter } from './common/rateLimit.js';
 import { healthRouter } from './common/health.routes.js';
+import { metricsMiddleware } from './common/metrics.js';
+import { metricsRouter } from './common/metrics.routes.js';
 import { apiRouter } from './routes.js';
 
 export function createApp() {
@@ -17,6 +19,7 @@ export function createApp() {
   app.set('trust proxy', 1);
 
   app.use(requestLogger);
+  app.use(metricsMiddleware);
   app.use(helmet());
   app.use(compression());
   app.use(cors({ origin: env.CLIENT_URL.split(','), credentials: true }));
@@ -24,6 +27,7 @@ export function createApp() {
   app.use(cookieParser());
 
   app.use('/health', healthRouter);
+  app.use('/metrics', metricsRouter);
   app.use('/api/v1', globalLimiter, apiRouter);
 
   app.use(notFoundHandler);

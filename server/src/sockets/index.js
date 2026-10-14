@@ -4,6 +4,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { env } from '../config/env.js';
 import { createRedis } from '../config/redis.js';
 import { logger } from '../common/logger.js';
+import { activeSockets } from '../common/metrics.js';
 import { eventRoom, userRoom } from '../common/realtime.js';
 
 const OBJECT_ID = /^[a-f\d]{24}$/i;
@@ -35,6 +36,8 @@ export function initSockets(httpServer) {
   });
 
   io.on('connection', (socket) => {
+    activeSockets.inc();
+    socket.on('disconnect', () => activeSockets.dec());
     if (socket.data.user) socket.join(userRoom(socket.data.user.id));
 
     socket.on('event:join', (payload, ack) => {

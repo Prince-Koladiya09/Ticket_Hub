@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { env } from '../../config/env.js';
 import { logger } from '../../common/logger.js';
+import { bookingTransitions } from '../../common/metrics.js';
 import { withTransaction } from '../../common/transaction.js';
 import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
@@ -78,6 +79,7 @@ export async function holdSeats({ userId, eventId, seatIds }) {
       totalAmount: seats.reduce((sum, s) => sum + s.price, 0),
       expiresAt: lock.expiresAt,
     });
+    bookingTransitions.inc({ to: 'PENDING' });
     emitSeats(eventId, 'seats:locked', ids);
     await scheduleExpiry(booking._id, booking.expiresAt);
     return booking;
@@ -100,6 +102,7 @@ export async function releaseHold(userId, bookingId) {
     throw conflict('This booking is no longer on hold', 'BOOKING_NOT_PENDING');
   }
   await releaseSeats({ eventId: booking.eventId, seatIds: booking.seatIds, ownerId: booking._id });
+  bookingTransitions.inc({ to: 'CANCELLED' });
   emitSeats(booking.eventId, 'seats:released', booking.seatIds);
   await cancelExpiry(booking._id);
   return booking;
@@ -149,6 +152,7 @@ export async function expireBooking(bookingId) {
   if (!booking) return false;
 
   await releaseSeats({ eventId: booking.eventId, seatIds: booking.seatIds, ownerId: booking._id });
+  bookingTransitions.inc({ to: 'EXPIRED' });
   emitSeats(booking.eventId, 'seats:released', booking.seatIds);
   emitToUser(booking.userId, 'booking:expired', { bookingId: String(booking._id) });
   return true;
@@ -210,6 +214,7 @@ export async function confirmBooking(bookingId, { paymentRef = null } = {}) {
   // Post-commit side effects. Failures here must not undo a successful booking.
   await releaseSeats({ eventId: confirmed.eventId, seatIds: confirmed.seatIds, ownerId: confirmed._id });
   await cancelExpiry(confirmed._id);
+  bookingTransitions.inc({ to: 'CONFIRMED' });
   emitSeats(confirmed.eventId, 'seats:booked', confirmed.seatIds);
   await queueTicket(confirmed._id);
   return confirmed;
@@ -273,6 +278,7 @@ export async function cancelBooking(userId, bookingId) {
     return booking;
   });
 
+  bookingTransitions.inc({ to: 'CANCELLED_CONFIRMED' });
   emitSeats(cancelled.eventId, 'seats:released', cancelled.seatIds);
   const ctx = await loadBookingContext(bookingId);
   await enqueueEmail('bookingCancelled', ctx.userId.email, {
