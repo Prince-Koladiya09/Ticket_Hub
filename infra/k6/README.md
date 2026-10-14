@@ -10,7 +10,7 @@ Two scenarios that exercise the design decisions in `docs/02-System-Design.md`.
 ## Running
 
 ```bash
-npm run seed -- --reset --prefix server        # creates buyer1..buyer20@tickethub.dev
+npm run seed --prefix server -- --reset      # creates buyer1..buyer20@tickethub.dev
 ```
 
 The API rate limiter would (rightly) throttle a load test coming from one IP, so start the API with the
