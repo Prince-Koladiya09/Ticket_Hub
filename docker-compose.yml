@@ -1,5 +1,7 @@
-# Local infrastructure: MongoDB (single-node replica set, required for transactions) and Redis.
-# Start with: docker compose up -d
+# Infrastructure only (default):      docker compose up -d
+# Full stack behind the load balancer: docker compose --profile app up --build --scale api=3
+#
+# Copy .env.example to .env first (the full stack needs the JWT secrets).
 services:
   mongo:
     image: mongo:7
@@ -9,7 +11,7 @@ services:
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      # Initiates the replica set on first run, then reports healthy once it has a primary.
+      # Initiates the single-node replica set on first run, then reports healthy.
       test: >
         mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}).ok }"
       interval: 5s
@@ -30,6 +32,62 @@ services:
       timeout: 3s
       retries: 10
 
+  # ---- application stack (profile "app") ----
+
+  api:
+    profiles: ["app"]
+    build: ./server
+    restart: unless-stopped
+    # No fixed container name or host port: scale freely, the gateway reaches replicas over the network.
+    expose: ["4000"]
+    environment: &app-env
+      NODE_ENV: ${NODE_ENV:-production}
+      MONGO_URI: mongodb://mongo:27017/tickethub?directConnection=true
+      REDIS_URL: redis://redis:6379
+      CLIENT_URL: ${CLIENT_URL:-http://localhost}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+      STORAGE_DIR: /app/storage
+      ENABLE_DEV_CONFIRM: ${ENABLE_DEV_CONFIRM:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    volumes:
+      - tickets:/app/storage
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    profiles: ["app"]
+    build: ./server
+    restart: unless-stopped
+    command: ["node", "src/worker.js"]
+    environment: *app-env
+    volumes:
+      - tickets:/app/storage
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  client:
+    profiles: ["app"]
+    build: ./client
+    restart: unless-stopped
+    expose: ["80"]
+
+  gateway:
+    profiles: ["app"]
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on: [api, client]
+
 volumes:
   mongo-data:
   redis-data:
+  tickets:

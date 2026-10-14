@@ -11,7 +11,7 @@ export const logger = pino({
     '*.passwordHash',
   ],
   transport:
-    !isProd && env.NODE_ENV !== 'test'
+    !isProd && env.NODE_ENV !== 'test' && process.stdout.isTTY
       ? { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:HH:MM:ss' } }
       : undefined,
 });
