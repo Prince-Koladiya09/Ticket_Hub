@@ -8,7 +8,8 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "worker": "node src/worker.js",
-    "dev:worker": "node --watch src/worker.js"
+    "dev:worker": "node --watch src/worker.js",
+    "seed": "node scripts/seed.js"
   },
   "type": "module",
   "engines": {

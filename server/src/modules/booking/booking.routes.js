@@ -12,7 +12,7 @@ export const bookingRouter = Router();
 bookingRouter.use(authenticate);
 
 // Holding seats is the hot, abusable endpoint, so it gets its own per-user limit.
-const holdLimiter = rateLimit({ name: 'hold', points: 20, duration: 60, key: (req) => req.user.id });
+const holdLimiter = rateLimit({ name: 'hold', points: env.HOLD_RATE_LIMIT, duration: 60, key: (req) => req.user.id });
 
 bookingRouter.post(
   '/hold',

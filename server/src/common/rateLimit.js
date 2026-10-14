@@ -1,4 +1,5 @@
 import { RateLimiterMemory, RateLimiterRedis } from 'rate-limiter-flexible';
+import { env } from '../config/env.js';
 import { redis } from '../config/redis.js';
 import { AppError } from './errors.js';
 import { logger } from './logger.js';
@@ -35,6 +36,6 @@ export function rateLimit({ name, points, duration, key = (req) => req.ip }) {
   };
 }
 
-export const globalLimiter = rateLimit({ name: 'global', points: 300, duration: 60 });
+export const globalLimiter = rateLimit({ name: 'global', points: env.GLOBAL_RATE_LIMIT, duration: 60 });
 // Strict limit on credential endpoints to slow down brute-force attempts.
-export const authLimiter = rateLimit({ name: 'auth', points: 10, duration: 60 });
+export const authLimiter = rateLimit({ name: 'auth', points: env.AUTH_RATE_LIMIT, duration: 60 });

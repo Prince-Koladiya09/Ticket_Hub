@@ -29,6 +29,10 @@ const schema = z.object({
   CANCELLATION_CUTOFF_HOURS: z.coerce.number().int().min(0).default(24),
   // If set, GET /metrics requires 'Authorization: Bearer <token>'. In production also keep it off the public internet.
   METRICS_TOKEN: z.string().optional(),
+  // Per-IP / per-user request budgets per minute. Raise them for load tests (see infra/k6).
+  GLOBAL_RATE_LIMIT: z.coerce.number().int().positive().default(300),
+  AUTH_RATE_LIMIT: z.coerce.number().int().positive().default(10),
+  HOLD_RATE_LIMIT: z.coerce.number().int().positive().default(20),
 });
 
 const parsed = schema.safeParse(process.env);
