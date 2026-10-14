@@ -52,6 +52,15 @@ if (env.ENABLE_DEV_CONFIRM && env.NODE_ENV !== 'production') {
   );
 }
 
+bookingRouter.post(
+  '/:id/cancel',
+  validate(bookingIdSchema),
+  asyncHandler(async (req, res) => {
+    const booking = await bookings.cancelBooking(req.user.id, req.params.id);
+    ok(res, { bookingId: booking.id, status: booking.status });
+  }),
+);
+
 bookingRouter.delete(
   '/:id/hold',
   validate(bookingIdSchema),

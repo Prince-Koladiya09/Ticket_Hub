@@ -1,10 +1,13 @@
 import mongoose from 'mongoose';
+import { env } from '../../config/env.js';
 import { logger } from '../../common/logger.js';
 import { withTransaction } from '../../common/transaction.js';
 import { badRequest, conflict, forbidden, notFound } from '../../common/errors.js';
 import { decodeCursor, encodeCursor } from '../../common/cursor.js';
 import { emitSeats, emitToUser } from '../../common/realtime.js';
 import { ticketQueue } from '../../queues/index.js';
+import { enqueueEmail } from '../notifications/email.service.js';
+import { Ticket } from '../tickets/ticket.model.js';
 import { assertBookable } from '../events/event.service.js';
 import { getSeatsByIds } from '../seats/seats.service.js';
 import { BookedSeat } from './bookedSeat.model.js';
@@ -229,4 +232,54 @@ async function queueTicket(bookingId) {
   } catch (err) {
     logger.error({ err: err.message, bookingId }, 'could not enqueue ticket job');
   }
+}
+
+// ---- Cancellation ----
+
+/**
+ * Cancels a CONFIRMED booking before the cutoff and returns its seats to the pool.
+ * Booking status and sold-seat rows change in one transaction, so a seat is never "free" while the
+ * booking still claims it, or the reverse.
+ *
+ * Refunds: once payments are integrated, this is where a refund job is enqueued
+ * (CANCELLED -> REFUNDED when the gateway confirms).
+ */
+export async function cancelBooking(userId, bookingId) {
+  const existing = await Booking.findById(bookingId).populate('eventId', 'startsAt title');
+  if (!existing || String(existing.userId) !== userId) throw notFound('Booking not found', 'BOOKING_NOT_FOUND');
+  if (existing.status !== 'CONFIRMED') {
+    throw conflict(`Only confirmed bookings can be cancelled (this one is ${existing.status.toLowerCase()})`, 'BOOKING_NOT_CANCELLABLE');
+  }
+
+  const hoursLeft = (existing.eventId.startsAt.getTime() - Date.now()) / 3_600_000;
+  if (hoursLeft < env.CANCELLATION_CUTOFF_HOURS) {
+    throw conflict(
+      `Bookings can only be cancelled up to ${env.CANCELLATION_CUTOFF_HOURS} hours before the event`,
+      'CANCELLATION_WINDOW_CLOSED',
+    );
+  }
+  if (await Ticket.exists({ bookingId, checkedIn: true })) {
+    throw conflict('This ticket has already been used', 'ALREADY_CHECKED_IN');
+  }
+
+  const cancelled = await withTransaction(async (session) => {
+    const booking = await Booking.findOneAndUpdate(
+      { _id: bookingId, status: 'CONFIRMED' },
+      { status: 'CANCELLED', cancelledAt: new Date() },
+      { new: true, session },
+    );
+    if (!booking) throw conflict('Booking is no longer confirmed', 'BOOKING_NOT_CANCELLABLE');
+    await BookedSeat.deleteMany({ bookingId }, { session });
+    return booking;
+  });
+
+  emitSeats(cancelled.eventId, 'seats:released', cancelled.seatIds);
+  const ctx = await loadBookingContext(bookingId);
+  await enqueueEmail('bookingCancelled', ctx.userId.email, {
+    name: ctx.userId.name,
+    eventTitle: ctx.eventId.title,
+    totalAmount: ctx.totalAmount,
+    bookingId: String(ctx._id),
+  });
+  return cancelled;
 }

@@ -26,6 +26,7 @@ const schema = z.object({
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string().default('TicketHub <no-reply@tickethub.local>'),
   STORAGE_DIR: z.string().default('./storage'),
+  CANCELLATION_CUTOFF_HOURS: z.coerce.number().int().min(0).default(24),
 });
 
 const parsed = schema.safeParse(process.env);
