@@ -120,3 +120,9 @@ label { display: block; font-size: 0.85rem; font-weight: 600; margin: 12px 0 4px
 .countdown { font-size: 2.6rem; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 .countdown.urgent { color: var(--danger); }
 .payment-box { background: #f6f5ff; border: 1px dashed #cfc9ff; border-radius: 10px; padding: 12px 14px; margin: 14px 0; font-size: 0.9rem; }
+
+.stats-panel { background: #f8f8fd; border-radius: 10px; padding: 14px 16px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.stat-value { font-size: 1.4rem; font-weight: 800; }
+.progress { height: 8px; background: #e4e6ef; border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, var(--brand), #a29bfe); }

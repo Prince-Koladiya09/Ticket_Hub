@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cancelEvent, fetchMyEvents, submitEvent } from '../api/events.js';
 import EventForm from '../components/EventForm.jsx';
+import EventStats from '../components/EventStats.jsx';
 import VenueForm from '../components/VenueForm.jsx';
 import { ErrorBox, Spinner } from '../components/ui.jsx';
 import { formatDate } from '../lib/format.js';
@@ -18,6 +20,7 @@ export default function Organizer() {
   const refresh = () => qc.invalidateQueries({ queryKey: ['my-events'] });
   const submit = useMutation({ mutationFn: submitEvent, onSuccess: refresh });
   const cancel = useMutation({ mutationFn: cancelEvent, onSuccess: refresh });
+  const [statsFor, setStatsFor] = useState(null);
 
   return (
     <>
@@ -40,6 +43,11 @@ export default function Organizer() {
               {e.status === 'rejected' && <div className="error-box">Rejected: {e.rejectionReason}</div>}
             </div>
             <span className={`status status-${e.status}`}>{e.status.replace('_', ' ')}</span>
+            {e.status === 'published' && (
+              <button className="btn secondary small" onClick={() => setStatsFor(statsFor === e.id ? null : e.id)}>
+                {statsFor === e.id ? 'Hide stats' : 'Stats'}
+              </button>
+            )}
             {['draft', 'rejected'].includes(e.status) && (
               <button className="btn small" onClick={() => submit.mutate(e.id)} disabled={submit.isPending}>
                 Submit for approval
@@ -52,6 +60,11 @@ export default function Organizer() {
               >
                 Cancel
               </button>
+            )}
+            {statsFor === e.id && (
+              <div style={{ flexBasis: '100%' }}>
+                <EventStats eventId={e.id} />
+              </div>
             )}
           </div>
         ))}
